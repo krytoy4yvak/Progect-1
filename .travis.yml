@@ -1,9 +1,38 @@
 language: python
 python:
-    - "3.6-dev"  
-
+    - "nightly"
+    - "3.7-dev"
+    - 3.6
+    - 3.5
+sudo: false
+env:
+  global:
+    - PATH=$TRAVIS_BUILD_DIR/pandoc:$PATH
+group: edge
+before_install:
+    - 'if [[ $GROUP != js* ]]; then COVERAGE=""; fi'
 install:
-  true
-# command to run tests
+    - pip install pip --upgrade
+    - pip install setuptools --upgrade
+    - pip install -e file://$PWD#egg=ipython[test] --upgrade
+    - pip install trio curio
+    - pip install codecov check-manifest --upgrade
+    - sudo apt-get install graphviz
 script:
-  - pytest
+    - check-manifest
+    - cd /tmp && iptest --coverage xml && cd -
+    # On the latest Python only, make sure that the docs build.
+    - |
+      if [[ "$TRAVIS_PYTHON_VERSION" == "3.6" ]]; then
+        pip install -r docs/requirements.txt
+        python tools/fixup_whats_new_pr.py
+        make -C docs/ html SPHINXOPTS="-W"
+      fi
+after_success:
+    - cp /tmp/ipy_coverage.xml ./
+    - cp /tmp/.coverage ./
+    - codecov
+
+matrix:
+    allow_failures:
+        - python: nightly
